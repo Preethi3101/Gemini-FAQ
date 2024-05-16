@@ -10,6 +10,7 @@ numpy
 pandas
 nltk
 google-generativeai
+openpyxl
 # uncomment to use huggingface llms
 # huggingface-hub==0.14.1
 
