@@ -72,7 +72,7 @@ def main():
         )
 
         # Topic Selection
-        topic = st.selectbox("Select Topic", ["Ackumen Boiling Management (ABM)", "ACM", "User Management", "Connected Planning (CP)", "Process View (PV)", "Ackumen General", "Connected Lab", "Ackumen Orders", "ADE", "MCA"])
+        topic = st.selectbox("Select Topic", ["Ackumen Boiling Management (ABM)", "Cooling Tower", "User Management", "Connected Planning (CP)", "Process View (PV)", "Ackumen General", "Connected Lab", "Ackumen Orders", "Ackumen Data Entry(ADE)", "MCA"])
         prompt_parts = [cleaned_text, f"Retrieve the top 10 frequently asked questions (FAQs) as questions about {topic} from the given content, along with the respective frequency count of each question which is greated than 35. A question is an Frequently Asked Question only if it exceeds 35 in its occurance in the text. I need only questions and not answers"]
 
         # Generate content for selected topic
