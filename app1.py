@@ -9,10 +9,10 @@ import os
 
 load_dotenv()
 
-google_api_key = os.environ['GOOGLE_API_KEY']
-os.getenv("GOOGLE_API_KEY")
+google_api_key = os.getenv('GOOGLE_API_KEY')
+
 def preprocess_text(text):
-    # Remove HTML tagss
+    # Remove HTML tags
     text = re.sub(r'<.*?>', '', text)
     # Remove non-alphanumeric characters
     text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
@@ -29,70 +29,132 @@ def generate_responses(prompt_parts, model):
     response = model.generate_content(prompt_parts)
     return response.text
 
+# Set Streamlit page configuration
+st.set_page_config(
+    page_title="FAQ Extraction Web App",
+    page_icon=":books:",
+    layout="wide",
+)
+
+# Custom CSS for UI enhancement
+st.markdown("""
+    <style>
+    body {
+        font-family: 'Arial', sans-serif;
+    }
+    .stApp {
+        background-color: #f5f5f5;
+    }
+    .header {
+        color: #2e3b4e;
+        font-weight: bold;
+        font-size: 30px;
+        text-align: center;
+        padding: 20px 0;
+    }
+    .subheader {
+        color: #4a6fa5;
+        font-weight: bold;
+        font-size: 24px;
+        margin-top: 20px;
+    }
+    .main-container {
+        background-color: #ffffff;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    .button {
+        background-color: #4a6fa5;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 def main():
-    st.title("FAQ Extraction Web App")
+    st.markdown("<div class='header'>FAQ Extraction Web App</div>", unsafe_allow_html=True)
 
-    # File Upload
-    uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
+    with st.container():
+        st.markdown("<div class='main-container'>", unsafe_allow_html=True)
 
-    if uploaded_file is not None:
-        df = pd.read_excel(uploaded_file)
-        df = df['Transcript'].str.cat(sep='\n')
+        uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
-        # Preprocess the text
-        cleaned_text = preprocess_text(df)
+        if uploaded_file is not None:
+            df = pd.read_excel(uploaded_file)
 
-        # Initialize Google Gemini
-        genai.configure(api_key=google_api_key)
-        generation_config = { "temperature": 1, "top_p": 1, "top_k": 1, "max_output_tokens": 8192,}
-        safety_settings = [
-        {
-            "category": "HARM_CATEGORY_HARASSMENT",
-            "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-        },
-        {
-            "category": "HARM_CATEGORY_HATE_SPEECH",
-            "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-        },
-        {
-            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-            "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-        },
-        {
-            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-            "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-        }
-        ]
+            if 'Transcript' in df.columns:
+                transcript = df['Transcript'].str.cat(sep='\n')
 
-        # Create the model
-        model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash-latest",
-            safety_settings=safety_settings,
-            generation_config=generation_config,
-        )
+                cleaned_text = preprocess_text(transcript)
 
-        # Topic Selection
-        topic = st.selectbox("Select Topic", ["Ackumen Boiling Management (ABM)", "Cooling Tower", "User Management", "Connected Planning (CP)", "Process View (PV)", "Ackumen General", "Connected Lab", "Ackumen Orders", "Ackumen Data Entry(ADE)", "MCA"])
-        prompt_parts = [cleaned_text, f"Retrieve the top 10 frequently asked questions (FAQs) as questions about {topic} from the given content, along with the respective frequency count of each question which is greated than 35. A question is an Frequently Asked Question only if it exceeds 35 in its occurance in the text. I need only questions and not answers"]
+                # Initialize Google Gemini
+                genai.configure(api_key=google_api_key)
+                generation_config = {
+                    "temperature": 1,
+                    "top_p": 1,
+                    "top_k": 1,
+                    "max_output_tokens": 8192,
+                }
+                safety_settings = [
+                    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+                    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+                    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+                    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"}
+                ]
 
-        # Generate content for selected topic
-        response = generate_responses(prompt_parts, model)
-        st.text(response)
+                model = genai.GenerativeModel(
+                    model_name="gemini-1.5-flash-latest",
+                    safety_settings=safety_settings,
+                    generation_config=generation_config,
+                )
 
-        # Download Excel File
-        if st.button("Download Excel File"):
-            # Create Excel Writer
-            excel_writer = pd.ExcelWriter("output.xlsx", engine="xlsxwriter")
+                topics = st.multiselect(
+                    "Select Topics",
+                    ["Ackumen Boiling Management (ABM)", "ACM", "User Management", "Connected Planning (CP)", "Process View (PV)", "Ackumen General", "Connected Lab", "Ackumen Orders", "ADE", "MCA"]
+                )
 
-            # Write Responses to Excel Sheets
-            df_responses = pd.DataFrame({"Response": [response]})
-            df_responses.to_excel(excel_writer, sheet_name=topic, index=False)
+                if topics:
+                    responses = {}
+                    for topic in topics:
+                        prompt_parts = [cleaned_text, f"Retrieve the top 10 frequently asked questions (FAQs) as questions about {topic} from the given content, along with the respective frequency count of each question which is greater than 35. A question is a Frequently Asked Question only if it exceeds 35 in its occurrence in the text. I need only questions and not answers."]
+                        response = generate_responses(prompt_parts, model)
+                        responses[topic] = response
 
-            # Save Excel File
-            excel_writer.save()
+                    st.markdown("<div class='subheader'>Generated FAQs</div>", unsafe_allow_html=True)
+                    for topic, response in responses.items():
+                        st.markdown(f"### {topic}")
+                        st.text(response)
 
-            # Download Excel File
-            st.download_button(label="Download Excel", data=open("output.xlsx", "rb").read(), file_name="output.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                    if st.button("Create Excel File and Send Response to It"):
+                        excel_writer = pd.ExcelWriter("output.xlsx", engine="xlsxwriter")
+
+                        for topic, response in responses.items():
+                            questions = response.split('\n')
+                            df_responses = pd.DataFrame({"Question": questions, "Count": [None] * len(questions)})
+                            df_responses.to_excel(excel_writer, sheet_name=topic, index=False)
+
+                        excel_writer.close()
+
+                        with open("output.xlsx", "rb") as file:
+                            st.download_button(
+                                label="Download Excel",
+                                data=file.read(),
+                                file_name="output.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            )
+                else:
+                    st.info("Please select at least one topic to proceed.")
+
+            else:
+                st.error("The uploaded Excel file does not contain a 'Transcript' column.")
+        else:
+            st.info("Please upload an Excel file to proceed.")
+
+        st.markdown("</div>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
