@@ -107,7 +107,7 @@ def main():
                 ]
 
                 model = genai.GenerativeModel(
-                    model_name="gemini-1.5-pro",
+                    model_name="gemini-1.5-flash",
                     safety_settings=safety_settings,
                     generation_config=generation_config,
                 )
