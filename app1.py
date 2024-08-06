@@ -147,7 +147,7 @@ def main():
                                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                             )
                 else:
-                    st.info("Please select at least one topic to proceed.")
+                    st.info("Please select a topic to proceed.")
 
             else:
                 st.error("The uploaded Excel file does not contain a 'Transcript' column.")
