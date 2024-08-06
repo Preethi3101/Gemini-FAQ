@@ -114,7 +114,7 @@ def main():
 
                 topics = st.multiselect(
                     "Select Topics",
-                    ["Ackumen Boiling Management (ABM)", "Cooling Tower", "User Management", "Connected Planning (CP)", "Process View (PV)", "Ackumen General", "Connected Lab", "Ackumen Orders", "Ackumen Data Entry (ADE)", "MCA"]
+                    ["Cooling Tower", "User Management", "Ackumen General", "Connected Lab", "Ackumen Orders"]
                 )
 
                 if topics:
