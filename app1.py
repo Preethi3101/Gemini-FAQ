@@ -112,7 +112,7 @@ def main():
                     generation_config=generation_config,
                 )
 
-                topics = st.multiselect(
+                topics = st.selectbox(
                     "Select Topics",
                     ["Cooling Tower", "User Management", "Ackumen General", "Connected Lab", "Ackumen Orders"]
                 )
