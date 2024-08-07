@@ -1,8 +1,6 @@
 import streamlit as st
-import numpy as np
 import pandas as pd
 import re
-from nltk.tokenize import sent_tokenize
 import google.generativeai as genai
 from dotenv import load_dotenv
 import os
@@ -12,70 +10,36 @@ load_dotenv()
 google_api_key = os.getenv('GOOGLE_API_KEY')
 
 def preprocess_text(text):
-    # Remove HTML tags
     text = re.sub(r'<.*?>', '', text)
-    # Remove non-alphanumeric characters
     text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
-    # Convert to lowercase
     text = text.lower()
     return text
 
-def extract_questions(text):
-    sentences = sent_tokenize(text)
-    questions = [sentence.strip() for sentence in sentences if sentence.endswith('?')]
-    return questions
-
-def generate_responses(prompt_parts, model):
-    response = model.generate_content(prompt_parts)
+def generate_responses(prompt, model):
+    response = model.generate_content(prompt)
     return response.text
 
-# Set Streamlit page configuration
-st.set_page_config(
-    page_title="FAQ Extraction Web App",
-    page_icon=":books:",
-    layout="wide",
-)
-
-# Custom CSS for UI enhancement
-st.markdown("""
-    <style>
-    body {
-        font-family: 'Arial', sans-serif;
-    }
-    .stApp {
-        background-color: #f5f5f5;
-    }
-    .header {
-        color: #2e3b4e;
-        font-weight: bold;
-        font-size: 30px;
-        text-align: center;
-        padding: 20px 0;
-    }
-    .subheader {
-        color: #4a6fa5;
-        font-weight: bold;
-        font-size: 24px;
-        margin-top: 20px;
-    }
-    .main-container {
-        background-color: #ffffff;
-        padding: 30px;
-        border-radius: 10px;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    }
-    .button {
-        background-color: #4a6fa5;
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 5px;
-        cursor: pointer;
-    }
-    </style>
+def main():
+    st.set_page_config(
+        page_title="FAQ Extraction Web App",
+        page_icon=":books:",
+        layout="wide",
+    )
+    
+    st.markdown("""
+        <style>
+        body { font-family: 'Arial', sans-serif; }
+        .stApp { background-color: #f5f5f5; }
+        .header { color: #2e3b4e; font-weight: bold; font-size: 30px; text-align: center; padding: 20px 0; }
+        .subheader { color: #4a6fa5; font-weight: bold; font-size: 24px; margin-top: 20px; }
+        .main-container { background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
+        .button { background-color: #4a6fa5; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+        .info-message { color: #007bff; font-size: 18px; font-weight: bold; margin-top: 20px; }
+        .error-message { color: #ff0000; font-size: 18px; font-weight: bold; margin-top: 20px; }
+        .response-text { color: #333333; font-size: 16px; margin-top: 10px; }
+        </style>
     """, unsafe_allow_html=True)
 
-def main():
     st.markdown("<div class='header'>FAQ Extraction Web App</div>", unsafe_allow_html=True)
 
     with st.container():
@@ -94,10 +58,10 @@ def main():
                 # Initialize Google Gemini
                 genai.configure(api_key=google_api_key)
                 generation_config = {
-                    "temperature": 0.7,
-                    "top_p": 0.95,
-                    "top_k": 1,
-                    "max_output_tokens": 8192,
+                    "temperature": 0.5,
+                    "top_p": 0.9,
+                    "top_k": 10,
+                    "max_output_tokens": 1024,
                 }
                 safety_settings = [
                     {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
@@ -107,27 +71,39 @@ def main():
                 ]
 
                 model = genai.GenerativeModel(
-                    model_name="gemini-1.5-flash",
+                    model_name="gemini-1.5-flash-latest",
                     safety_settings=safety_settings,
                     generation_config=generation_config,
+                    system_instruction="You are a professional assistant that generates FAQs based on the provided content."
                 )
 
-                topics = st.selectbox(
+                topics = st.multiselect(
                     "Select Topics",
-                    ["Cooling Tower", "User Management", "Ackumen General", "Connected Lab", "Ackumen Orders"]
+                    ["Boiler Management / ABM", "Cooling Tower / ACM", "User Management", "Connected Planning", "Process View", "Ackumen", "Connected Lab", "Orders"]
                 )
 
                 if topics:
                     responses = {}
                     for topic in topics:
-                        prompt_parts = [cleaned_text, f"Retrieve the top 10 frequently asked questions (FAQs) as questions about {topic} from the given content, along with the respective frequency count of each question which is greater than 35. A question is a Frequently Asked Question only if it exceeds 35 in its occurrence in the text. I need only questions and not answers."]
-                        response = generate_responses(prompt_parts, model)
+                        prompt = f"""
+                        Below is a transcript of conversations that contains content related to {topic}.
+                        Please consider only the sentences with the keyword {topic} 
+                        Please extract the top 10 frequently asked questions (FAQs) about {topic} from the content. 
+                        Ensure to pick each question that appears greater than 35 times in the transcript. 
+                        Provide only the questions with the frequency of occurance greater than 35, not the answers, and make sure all questions are unique and related to the context of {topic}.
+                        Please use varied question tags for a single response as in what why where can How etc.,
+                        Your Response should contain question and its frequency.
+
+                        Transcript:
+                        {cleaned_text}
+                        """
+                        response = generate_responses(prompt, model)
                         responses[topic] = response
 
                     st.markdown("<div class='subheader'>Generated FAQs</div>", unsafe_allow_html=True)
                     for topic, response in responses.items():
                         st.markdown(f"### {topic}")
-                        st.text(response)
+                        st.markdown(f"<div class='response-text'>{response}</div>", unsafe_allow_html=True)
 
                     if st.button("Create Excel File and Send Response to It"):
                         excel_writer = pd.ExcelWriter("output.xlsx", engine="xlsxwriter")
@@ -147,12 +123,12 @@ def main():
                                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                             )
                 else:
-                    st.info("Please select a topic to proceed.")
+                    st.markdown("<div class='info-message'>Please select at least one topic to proceed.</div>", unsafe_allow_html=True)
 
             else:
-                st.error("The uploaded Excel file does not contain a 'Transcript' column.")
+                st.markdown("<div class='error-message'>The uploaded Excel file does not contain a 'Transcript' column.</div>", unsafe_allow_html=True)
         else:
-            st.info("Please upload an Excel file to proceed.")
+            st.markdown("<div class='info-message'>Please upload an Excel file to proceed.</div>", unsafe_allow_html=True)
 
         st.markdown("</div>", unsafe_allow_html=True)
 
